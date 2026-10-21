@@ -1,0 +1,16 @@
+{
+    "experiment_name": "breast_cancer_logistic_regression_baseline",
+    "dataset": "breast_cancer",
+    "model": "logistic_regression",
+    "test_size": 0.2,
+    "random_state": 42,
+    "model_parameters": {
+        "max_iter": 1000
+    },
+    "metrics": [
+        "accuracy",
+        "precision",
+        "recall",
+        "f1"
+    ]
+}
