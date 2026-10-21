@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local datasets
+data/raw/*
+data/processed/*
+
+# Generated models and outputs
+artifacts/models/*
+artifacts/checkpoints/*
+artifacts/reports/*
+logs/*
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Editor and operating system
+.vscode/
+.DS_Store
+
+# Keep directory placeholders
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!artifacts/models/.gitkeep
+!artifacts/checkpoints/.gitkeep
+!artifacts/reports/.gitkeep
+!logs/.gitkeep
