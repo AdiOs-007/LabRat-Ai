@@ -36,7 +36,8 @@ logs/*
 .ipynb_checkpoints/
 
 # Editor and operating system
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .DS_Store
 
 # Keep directory placeholders
