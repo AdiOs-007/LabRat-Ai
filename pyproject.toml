@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "An autonomous agent for controlled machine learning experiments"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "scikit-learn>=1.9,<2.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
