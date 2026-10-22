@@ -44,6 +44,56 @@ class TestCLI(unittest.TestCase):
             main(["history", "--limit", "0"])
         self.assertEqual(context.exception.code, 2)
 
+    def test_compare_with_no_experiments(self) -> None:
+        exit_code = main(
+            [
+                "compare",
+                "--metric",
+                "f1",
+                "--database",
+                str(self.database),
+            ]
+        )
+        self.assertEqual(exit_code, 0)
+
+    def test_compare_after_running_experiment(self) -> None:
+        main(
+            [
+                "run",
+                "configs/baseline.json",
+                "--database",
+                str(self.database),
+            ]
+        )
+
+        exit_code = main(
+            [
+                "compare",
+                "--metric",
+                "f1",
+                "--direction",
+                "maximize",
+                "--database",
+                str(self.database),
+            ]
+        )
+        self.assertEqual(exit_code, 0)
+
+    def test_invalid_compare_limit(self) -> None:
+        with self.assertRaises(SystemExit) as context:
+            main(
+                [
+                    "compare",
+                    "--metric",
+                    "f1",
+                    "--limit",
+                    "0",
+                    "--database",
+                    str(self.database),
+                ]
+            )
+        self.assertEqual(context.exception.code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()

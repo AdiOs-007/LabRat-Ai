@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from labrat.experiments.comparator import rank_experiments
 from labrat.runners.experiment_runner import run_experiment
 from labrat.storage.sqlite_backend import SQLiteBackend
 
@@ -66,6 +67,24 @@ def handle_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_compare(args: argparse.Namespace) -> int:
+    """Rank stored experiments by a selected metric."""
+    storage = SQLiteBackend(args.database)
+    try:
+        experiments = storage.list_experiments(limit=args.limit)
+    finally:
+        storage.close()
+
+    result = rank_experiments(
+        experiments,
+        metric=args.metric,
+        direction=args.direction,
+    )
+
+    print_json(result)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the LabRat AI command-line argument parser."""
     parser = argparse.ArgumentParser(
@@ -122,6 +141,35 @@ def build_parser() -> argparse.ArgumentParser:
     )
     show_parser.set_defaults(handler=handle_show)
 
+    compare_parser = subparsers.add_parser(
+        "compare",
+        help="Rank stored experiments by a selected metric.",
+    )
+    compare_parser.add_argument(
+        "--metric",
+        required=True,
+        help="Metric to rank by, such as f1 or accuracy.",
+    )
+    compare_parser.add_argument(
+        "--direction",
+        choices=["maximize", "minimize"],
+        default="maximize",
+        help="Whether higher or lower metric values are better.",
+    )
+    compare_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum number of recent experiments to compare.",
+    )
+    compare_parser.add_argument(
+        "--database",
+        type=Path,
+        default=DEFAULT_DATABASE,
+        help="SQLite database path (default: data/experiments.sqlite3).",
+    )
+    compare_parser.set_defaults(handler=handle_compare)
+
     return parser
 
 
@@ -130,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "history" and args.limit < 1:
+    if args.command in {"history", "compare"} and args.limit < 1:
         parser.error("--limit must be at least 1")
 
     try:
