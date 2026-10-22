@@ -1,5 +1,6 @@
 """Execute configured machine learning experiments."""
 
+from pathlib import Path
 from time import perf_counter
 from typing import Any
 
@@ -8,10 +9,14 @@ from sklearn.model_selection import train_test_split
 
 from labrat.core.config import load_config
 from labrat.experiments.builder import build_model, load_dataset
+from labrat.storage.sqlite_backend import SQLiteBackend
 
 
-def run_experiment(config_path: str) -> dict[str, Any]:
-    """Train a configured model and return its evaluation results."""
+def run_experiment(
+    config_path: str | Path,
+    database_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Train, evaluate, and optionally persist a configured experiment."""
     config = load_config(config_path)
 
     X, y, class_names = load_dataset(config["dataset"])
@@ -45,7 +50,7 @@ def run_experiment(config_path: str) -> dict[str, Any]:
 
     metrics = {name: float(metric_functions[name]()) for name in config["metrics"]}
 
-    return {
+    result = {
         "experiment_name": config["experiment_name"],
         "dataset": config["dataset"],
         "model": config["model"],
@@ -56,3 +61,12 @@ def run_experiment(config_path: str) -> dict[str, Any]:
         "metrics": metrics,
         "training_seconds": training_seconds,
     }
+
+    if database_path is not None:
+        storage = SQLiteBackend(database_path)
+        try:
+            result["id"] = storage.save_experiment(result)
+        finally:
+            storage.close()
+
+    return result
