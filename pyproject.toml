@@ -12,6 +12,9 @@ dependencies = [
     "scikit-learn>=1.9,<2.0",
 ]
 
+[project.scripts]
+labrat = "labrat.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
