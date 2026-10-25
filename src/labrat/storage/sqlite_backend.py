@@ -41,10 +41,31 @@ class SQLiteBackend:
                     positive_class TEXT NOT NULL,
                     metrics_json TEXT NOT NULL,
                     training_seconds REAL NOT NULL,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    dataset_fingerprint TEXT,
+                    model_parameters_json TEXT,
+                    evaluation_json TEXT
                 )
                 """
             )
+
+            existing_columns = {
+                row["name"]
+                for row in self.connection.execute(
+                    "PRAGMA table_info(experiments)"
+                ).fetchall()
+            }
+            migrations = {
+                "dataset_fingerprint": "TEXT",
+                "model_parameters_json": "TEXT",
+                "evaluation_json": "TEXT",
+            }
+
+            for column, column_type in migrations.items():
+                if column not in existing_columns:
+                    self.connection.execute(
+                        f"ALTER TABLE experiments ADD COLUMN {column} {column_type}"
+                    )
 
     def save_experiment(self, result: ExperimentResult) -> int:
         """Save a completed experiment and return its database ID."""
@@ -69,6 +90,16 @@ class SQLiteBackend:
         if not isinstance(result["metrics"], dict):
             raise ValueError("metrics must be a dictionary.")
 
+        serialized_metadata = {}
+        for field in ("model_parameters", "evaluation"):
+            if field in result:
+                if not isinstance(result[field], dict):
+                    raise ValueError(f"{field} must be a dictionary.")
+                serialized_metadata[field] = json.dumps(
+                    result[field],
+                    allow_nan=False,
+                )
+
         metrics_json = json.dumps(
             result["metrics"],
             allow_nan=False,
@@ -88,9 +119,12 @@ class SQLiteBackend:
                     positive_class,
                     metrics_json,
                     training_seconds,
-                    created_at
+                    created_at,
+                    dataset_fingerprint,
+                    model_parameters_json,
+                    evaluation_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     result["experiment_name"],
@@ -103,6 +137,9 @@ class SQLiteBackend:
                     metrics_json,
                     result["training_seconds"],
                     created_at,
+                    result.get("dataset_fingerprint"),
+                    serialized_metadata.get("model_parameters"),
+                    serialized_metadata.get("evaluation"),
                 ),
             )
 
@@ -139,7 +176,7 @@ class SQLiteBackend:
     @staticmethod
     def _row_to_result(row: sqlite3.Row) -> ExperimentResult:
         """Convert a database row to the public result format."""
-        return {
+        result = {
             "id": row["id"],
             "experiment_name": row["experiment_name"],
             "dataset": row["dataset"],
@@ -152,6 +189,15 @@ class SQLiteBackend:
             "training_seconds": row["training_seconds"],
             "created_at": row["created_at"],
         }
+
+        if row["dataset_fingerprint"] is not None:
+            result["dataset_fingerprint"] = row["dataset_fingerprint"]
+        if row["model_parameters_json"] is not None:
+            result["model_parameters"] = json.loads(row["model_parameters_json"])
+        if row["evaluation_json"] is not None:
+            result["evaluation"] = json.loads(row["evaluation_json"])
+
+        return result
 
     def close(self) -> None:
         """Close the database connection."""
