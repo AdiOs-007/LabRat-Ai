@@ -1,6 +1,9 @@
 """Tests for the LabRat AI command-line interface."""
 
+import json
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -78,6 +81,46 @@ class TestCLI(unittest.TestCase):
             ]
         )
         self.assertEqual(exit_code, 0)
+
+    def test_campaign_runs_and_displays_ranking(self) -> None:
+        output = StringIO()
+
+        with redirect_stdout(output):
+            exit_code = main(
+                [
+                    "campaign",
+                    "configs/baseline.json",
+                    "--max-trials",
+                    "2",
+                    "--database",
+                    str(self.database),
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        self.assertTrue(self.database.exists())
+
+        result = json.loads(output.getvalue())
+        self.assertEqual(result["trials_requested"], 2)
+        self.assertEqual(result["trials_completed"], 2)
+        self.assertEqual(len(result["candidate_results"]), 2)
+        self.assertEqual(len(result["ranking"]["ranked"]), 2)
+        self.assertEqual(result["ranking"]["excluded"], [])
+
+    def test_campaign_rejects_zero_trials(self) -> None:
+        with self.assertRaises(SystemExit) as context:
+            main(
+                [
+                    "campaign",
+                    "configs/baseline.json",
+                    "--max-trials",
+                    "0",
+                    "--database",
+                    str(self.database),
+                ]
+            )
+
+        self.assertEqual(context.exception.code, 2)
 
     def test_invalid_compare_limit(self) -> None:
         with self.assertRaises(SystemExit) as context:

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from labrat.experiments.comparator import rank_experiments
+from labrat.runners.campaign_runner import run_campaign
 from labrat.runners.experiment_runner import run_experiment
 from labrat.storage.sqlite_backend import SQLiteBackend
 
@@ -22,6 +23,20 @@ def handle_run(args: argparse.Namespace) -> int:
     result = run_experiment(
         args.config,
         database_path=args.database,
+    )
+    print_json(result)
+    return 0
+
+
+def handle_campaign(args: argparse.Namespace) -> int:
+    """Run a bounded campaign and display its ranking."""
+    result = run_campaign(
+        args.config,
+        database_path=args.database,
+        max_trials=args.max_trials,
+        metric=args.metric,
+        direction=args.direction,
+        validation_size=args.validation_size,
     )
     print_json(result)
     return 0
@@ -169,6 +184,45 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLite database path (default: data/experiments.sqlite3).",
     )
     compare_parser.set_defaults(handler=handle_compare)
+
+    campaign_parser = subparsers.add_parser(
+        "campaign",
+        help="Run and rank a bounded set of model experiments.",
+    )
+    campaign_parser.add_argument(
+        "config",
+        help="Path to the experiment JSON configuration.",
+    )
+    campaign_parser.add_argument(
+        "--max-trials",
+        type=int,
+        default=5,
+        help="Maximum number of candidate experiments (1-5; default: 5).",
+    )
+    campaign_parser.add_argument(
+        "--metric",
+        default="f1",
+        help="Metric used to rank candidates (default: f1).",
+    )
+    campaign_parser.add_argument(
+        "--direction",
+        choices=["maximize", "minimize"],
+        default="maximize",
+        help="Whether higher or lower metric values are better.",
+    )
+    campaign_parser.add_argument(
+        "--validation-size",
+        type=float,
+        default=0.25,
+        help="Fraction of development data used for validation (default: 0.25).",
+    )
+    campaign_parser.add_argument(
+        "--database",
+        type=Path,
+        default=DEFAULT_DATABASE,
+        help="SQLite database path (default: data/experiments.sqlite3).",
+    )
+    campaign_parser.set_defaults(handler=handle_campaign)
 
     return parser
 
