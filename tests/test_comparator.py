@@ -16,7 +16,15 @@ def make_experiment(
         "id": experiment_id,
         "experiment_name": f"experiment_{experiment_id}",
         "dataset": dataset,
+        "dataset_fingerprint": "dataset-hash-123",
         "model": "logistic_regression",
+        "model_parameters": {"C": 1.0},
+        "evaluation": {
+            "test_size": 0.2,
+            "random_state": 42,
+            "stratify": True,
+            "protocol_version": 1,
+        },
         "metrics": {"f1": metric_value},
     }
 
@@ -112,6 +120,59 @@ class TestRankExperiments(unittest.TestCase):
     def test_invalid_direction_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "direction"):
             rank_experiments([], "f1", "sideways")
+
+    def test_different_dataset_fingerprints_are_rejected(self):
+        first = make_experiment(1, 0.9)
+        second = make_experiment(2, 0.8)
+        second["dataset_fingerprint"] = "different-dataset-hash"
+
+        with self.assertRaisesRegex(ValueError, "fingerprints"):
+            rank_experiments([first, second], "f1")
+
+    def test_different_evaluation_settings_are_rejected(self):
+        first = make_experiment(1, 0.9)
+        second = make_experiment(2, 0.8)
+        second["evaluation"]["test_size"] = 0.3
+
+        with self.assertRaisesRegex(ValueError, "evaluation settings"):
+            rank_experiments([first, second], "f1")
+
+    def test_different_model_parameters_can_be_compared(self):
+        first = make_experiment(1, 0.9)
+        second = make_experiment(2, 0.8)
+        second["model_parameters"] = {"C": 0.5}
+
+        result = rank_experiments([first, second], "f1")
+
+        self.assertEqual([item["id"] for item in result["ranked"]], [1, 2])
+
+    def test_missing_metadata_is_excluded(self):
+        valid = make_experiment(1, 0.9)
+        legacy = make_experiment(2, 0.8)
+        legacy.pop("dataset_fingerprint")
+        legacy.pop("evaluation")
+
+        result = rank_experiments([valid, legacy], "f1")
+
+        self.assertEqual([item["id"] for item in result["ranked"]], [1])
+        self.assertEqual([item["id"] for item in result["excluded"]], [2])
+        self.assertIn("metadata", result["excluded"][0]["reason"].lower())
+
+    def test_all_legacy_experiments_are_excluded(self):
+        first = make_experiment(1, 0.9)
+        second = make_experiment(2, 0.8)
+
+        for experiment in (first, second):
+            experiment.pop("dataset_fingerprint")
+            experiment.pop("evaluation")
+
+        result = rank_experiments([first, second], "f1")
+
+        self.assertEqual(result["ranked"], [])
+        self.assertEqual(len(result["excluded"]), 2)
+        self.assertTrue(
+            all("metadata" in item["reason"].lower() for item in result["excluded"])
+        )
 
     def test_mixed_datasets_are_rejected(self):
         experiments = [

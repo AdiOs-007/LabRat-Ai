@@ -32,8 +32,47 @@ def rank_experiments(
 
     ranked_candidates = []
     excluded = []
+    compatible_experiments = []
 
     for experiment in experiments:
+        fingerprint = experiment.get("dataset_fingerprint")
+        evaluation = experiment.get("evaluation")
+
+        if not fingerprint or not isinstance(evaluation, dict):
+            excluded.append(
+                {
+                    "id": experiment.get("id"),
+                    "reason": (
+                        "Reproducibility metadata is missing "
+                        "(dataset fingerprint or evaluation settings)."
+                    ),
+                }
+            )
+            continue
+
+        compatible_experiments.append(experiment)
+
+    if compatible_experiments:
+        fingerprints = {
+            experiment["dataset_fingerprint"] for experiment in compatible_experiments
+        }
+        if len(fingerprints) > 1:
+            raise ValueError(
+                "Experiments with different dataset fingerprints "
+                "cannot be compared together."
+            )
+
+        evaluation_settings = [
+            experiment["evaluation"] for experiment in compatible_experiments
+        ]
+        first_evaluation = evaluation_settings[0]
+        if any(settings != first_evaluation for settings in evaluation_settings[1:]):
+            raise ValueError(
+                "Experiments with different evaluation settings "
+                "cannot be compared together."
+            )
+
+    for experiment in compatible_experiments:
         metrics = experiment.get("metrics", {})
         value = metrics.get(metric)
 
