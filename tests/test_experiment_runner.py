@@ -24,6 +24,18 @@ class TestExperimentRunner(unittest.TestCase):
         self.assertEqual(result["test_samples"], 114)
         self.assertEqual(result["positive_class"], "malignant")
 
+        self.assertRegex(result["dataset_fingerprint"], r"^[0-9a-f]{64}$")
+        self.assertEqual(result["model_parameters"], {"max_iter": 1000})
+        self.assertEqual(
+            result["evaluation"],
+            {
+                "test_size": 0.2,
+                "random_state": 42,
+                "stratify": True,
+                "protocol_version": 1,
+            },
+        )
+
         self.assertEqual(
             set(result["metrics"]),
             {"accuracy", "precision", "recall", "f1"},
@@ -40,6 +52,10 @@ class TestExperimentRunner(unittest.TestCase):
         second = run_experiment(str(BASELINE_CONFIG))
 
         self.assertEqual(first["metrics"], second["metrics"])
+        self.assertEqual(
+            first["dataset_fingerprint"],
+            second["dataset_fingerprint"],
+        )
         self.assertEqual(first["train_samples"], second["train_samples"])
         self.assertEqual(first["test_samples"], second["test_samples"])
 

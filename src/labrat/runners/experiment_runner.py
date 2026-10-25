@@ -1,5 +1,6 @@
 """Execute configured machine learning experiments."""
 
+import hashlib
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -10,6 +11,18 @@ from sklearn.model_selection import train_test_split
 from labrat.core.config import load_config
 from labrat.experiments.builder import build_model, load_dataset
 from labrat.storage.sqlite_backend import SQLiteBackend
+
+
+def fingerprint_dataset(X, y) -> str:
+    """Return a deterministic SHA-256 fingerprint of dataset contents."""
+    digest = hashlib.sha256()
+
+    for array in (X, y):
+        digest.update(str(array.shape).encode("utf-8"))
+        digest.update(str(array.dtype).encode("utf-8"))
+        digest.update(array.tobytes())
+
+    return digest.hexdigest()
 
 
 def run_experiment(
@@ -53,8 +66,16 @@ def run_experiment(
     result = {
         "experiment_name": config["experiment_name"],
         "dataset": config["dataset"],
+        "dataset_fingerprint": fingerprint_dataset(X, y),
         "model": config["model"],
+        "model_parameters": config["model_parameters"],
         "random_state": config["random_state"],
+        "evaluation": {
+            "test_size": config["test_size"],
+            "random_state": config["random_state"],
+            "stratify": True,
+            "protocol_version": 1,
+        },
         "train_samples": len(X_train),
         "test_samples": len(X_test),
         "positive_class": class_names[0],
