@@ -7,6 +7,7 @@ from typing import Any
 
 from labrat.core.config import load_config
 from labrat.experiments.comparator import rank_experiments
+from labrat.planner.selector import select_next_candidate
 from labrat.runners.validation_runner import run_validation_experiment
 
 DEFAULT_CANDIDATE_VALUES = (0.01, 0.1, 1.0, 10.0, 100.0)
@@ -40,13 +41,20 @@ def run_campaign(
             f"Metric '{metric}' must be included in the configuration's metrics."
         )
 
-    candidates = DEFAULT_CANDIDATE_VALUES[:max_trials]
+    remaining_candidates = list(DEFAULT_CANDIDATE_VALUES)
     results = []
 
     with tempfile.TemporaryDirectory(prefix="labrat-campaign-") as directory:
         config_directory = Path(directory)
 
-        for trial_number, c_value in enumerate(candidates, start=1):
+        for trial_number in range(1, max_trials + 1):
+            c_value = select_next_candidate(
+                results,
+                remaining_candidates,
+                metric,
+                direction,
+            )
+            remaining_candidates.remove(c_value)
             candidate_config = dict(base_config)
             candidate_config["experiment_name"] = (
                 f"{base_config['experiment_name']}_campaign_trial_{trial_number}"
