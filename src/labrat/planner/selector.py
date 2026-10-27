@@ -1,6 +1,6 @@
 """Select candidates for a bounded model-tuning campaign."""
 
-from math import log10
+from math import isfinite, log10
 from typing import Any
 
 
@@ -27,13 +27,33 @@ def select_next_candidate(
         )
         return center
 
-    valid_trials = [
-        trial
-        for trial in completed_trials
-        if metric in trial.get("metrics", {})
-        and isinstance(trial.get("model_parameters"), dict)
-        and "C" in trial["model_parameters"]
-    ]
+    valid_trials = []
+    for trial in completed_trials:
+        metrics = trial.get("metrics")
+        parameters = trial.get("model_parameters")
+
+        if not isinstance(metrics, dict) or not isinstance(parameters, dict):
+            continue
+
+        metric_value = metrics.get(metric)
+        candidate = parameters.get("C")
+
+        if (
+            isinstance(metric_value, bool)
+            or not isinstance(metric_value, (int, float))
+            or not isfinite(metric_value)
+        ):
+            continue
+
+        if (
+            isinstance(candidate, bool)
+            or not isinstance(candidate, (int, float))
+            or not isfinite(candidate)
+            or candidate <= 0
+        ):
+            continue
+
+        valid_trials.append(trial)
 
     if not valid_trials:
         return min(

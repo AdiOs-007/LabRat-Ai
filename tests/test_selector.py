@@ -54,6 +54,54 @@ class TestCandidateSelector(unittest.TestCase):
         with self.assertRaises(ValueError):
             select_next_candidate([], [0.0, 1.0], "f1")
 
+    def test_ignores_trials_missing_requested_metric(self):
+        trials = [
+            {
+                "metrics": {"accuracy": 0.99},
+                "model_parameters": {"C": 100.0},
+            },
+            {
+                "metrics": {"f1": 0.95},
+                "model_parameters": {"C": 10.0},
+            },
+        ]
+
+        selected = select_next_candidate(
+            trials,
+            [0.1, 1.0, 100.0],
+            "f1",
+        )
+
+        self.assertEqual(selected, 1.0)
+
+    def test_falls_back_when_all_trials_are_unusable(self):
+        trials = [
+            {"metrics": {"accuracy": 0.99}, "model_parameters": {"C": 10.0}},
+            {"metrics": {"f1": "invalid"}, "model_parameters": {"C": 100.0}},
+        ]
+
+        selected = select_next_candidate(
+            trials,
+            [0.1, 1.0, 10.0],
+            "f1",
+        )
+
+        self.assertEqual(selected, 1.0)
+
+    def test_ignores_trials_with_missing_model_parameters(self):
+        trials = [
+            {"metrics": {"f1": 0.99}},
+            {"metrics": {"f1": 0.90}, "model_parameters": {"C": 10.0}},
+        ]
+
+        selected = select_next_candidate(
+            trials,
+            [0.1, 1.0, 100.0],
+            "f1",
+        )
+
+        self.assertEqual(selected, 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()
