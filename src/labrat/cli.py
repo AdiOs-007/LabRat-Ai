@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from labrat.experiments.comparator import rank_experiments
+from labrat.reporting import generate_markdown_report
 from labrat.runners.campaign_runner import run_campaign
 from labrat.runners.experiment_runner import run_experiment
 from labrat.storage.sqlite_backend import SQLiteBackend
@@ -97,6 +98,27 @@ def handle_compare(args: argparse.Namespace) -> int:
     )
 
     print_json(result)
+    return 0
+
+
+def handle_report(args: argparse.Namespace) -> int:
+    """Export a Markdown report of stored experiments."""
+    storage = SQLiteBackend(args.database)
+    try:
+        experiments = storage.list_experiments(limit=args.limit)
+    finally:
+        storage.close()
+
+    ranking = rank_experiments(
+        experiments,
+        metric=args.metric,
+        direction=args.direction,
+    )
+    report = generate_markdown_report(experiments, ranking)
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(report, encoding="utf-8")
+    print(f"Report saved to: {args.output}")
     return 0
 
 
@@ -223,6 +245,41 @@ def build_parser() -> argparse.ArgumentParser:
         help="SQLite database path (default: data/experiments.sqlite3).",
     )
     campaign_parser.set_defaults(handler=handle_campaign)
+
+    report_parser = subparsers.add_parser(
+        "report",
+        help="Export a Markdown report of stored experiments.",
+    )
+    report_parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("artifacts/reports/labrat-report.md"),
+        help="Markdown report path.",
+    )
+    report_parser.add_argument(
+        "--metric",
+        default="f1",
+        help="Metric used to rank experiments (default: f1).",
+    )
+    report_parser.add_argument(
+        "--direction",
+        choices=["maximize", "minimize"],
+        default="maximize",
+        help="Whether higher or lower metric values are better.",
+    )
+    report_parser.add_argument(
+        "--limit",
+        type=int,
+        default=20,
+        help="Maximum number of recent experiments to include.",
+    )
+    report_parser.add_argument(
+        "--database",
+        type=Path,
+        default=DEFAULT_DATABASE,
+        help="SQLite database path.",
+    )
+    report_parser.set_defaults(handler=handle_report)
 
     return parser
 
