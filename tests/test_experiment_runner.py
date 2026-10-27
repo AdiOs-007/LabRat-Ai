@@ -47,6 +47,46 @@ class TestExperimentRunner(unittest.TestCase):
 
         self.assertGreaterEqual(result["training_seconds"], 0.0)
 
+    def test_random_forest_experiment_returns_expected_results(self):
+        with BASELINE_CONFIG.open("r", encoding="utf-8") as file:
+            config = json.load(file)
+
+        config["experiment_name"] = "random_forest_test"
+        config["model"] = "random_forest"
+        config["model_parameters"] = {
+            "n_estimators": 100,
+            "random_state": 42,
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "random_forest.json"
+            config_path.write_text(
+                json.dumps(config),
+                encoding="utf-8",
+            )
+
+            result = run_experiment(config_path)
+
+        self.assertEqual(result["dataset"], "breast_cancer")
+        self.assertEqual(result["model"], "random_forest")
+        self.assertEqual(
+            result["model_parameters"],
+            {"n_estimators": 100, "random_state": 42},
+        )
+        self.assertEqual(result["train_samples"], 455)
+        self.assertEqual(result["test_samples"], 114)
+        self.assertEqual(result["positive_class"], "malignant")
+        self.assertEqual(
+            set(result["metrics"]),
+            {"accuracy", "precision", "recall", "f1"},
+        )
+
+        for score in result["metrics"].values():
+            self.assertGreaterEqual(score, 0.0)
+            self.assertLessEqual(score, 1.0)
+
+        self.assertGreaterEqual(result["training_seconds"], 0.0)
+
     def test_repeated_runs_produce_same_metrics(self):
         first = run_experiment(str(BASELINE_CONFIG))
         second = run_experiment(str(BASELINE_CONFIG))

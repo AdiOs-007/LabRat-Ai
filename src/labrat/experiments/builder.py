@@ -3,6 +3,7 @@
 from typing import Any
 
 from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -18,12 +19,20 @@ def load_dataset(name: str) -> tuple[Any, Any, list[str]]:
 
 
 def build_model(model_name: str, parameters: dict[str, Any]) -> Pipeline:
-    """Build a supported model with preprocessing inside its pipeline."""
+    """Build a supported model with appropriate preprocessing."""
     if model_name == "logistic_regression":
         model = LogisticRegression(**parameters)
         return Pipeline(
             [
                 ("scaler", StandardScaler()),
+                ("classifier", model),
+            ]
+        )
+
+    if model_name == "random_forest":
+        model = RandomForestClassifier(**parameters)
+        return Pipeline(
+            [
                 ("classifier", model),
             ]
         )

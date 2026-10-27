@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 SUPPORTED_DATASETS = {"breast_cancer"}
-SUPPORTED_MODELS = {"logistic_regression"}
+SUPPORTED_MODELS = {"logistic_regression", "random_forest"}
 SUPPORTED_METRICS = {"accuracy", "precision", "recall", "f1"}
 
 
@@ -63,9 +63,21 @@ def load_config(path: str | Path) -> dict[str, Any]:
     if not isinstance(parameters, dict):
         raise ValueError("model_parameters must be a JSON object.")
 
-    max_iter = parameters.get("max_iter")
-    if isinstance(max_iter, bool) or not isinstance(max_iter, int) or max_iter < 1:
-        raise ValueError("model_parameters.max_iter must be a positive integer.")
+    if config["model"] == "logistic_regression":
+        max_iter = parameters.get("max_iter")
+        if isinstance(max_iter, bool) or not isinstance(max_iter, int) or max_iter < 1:
+            raise ValueError("model_parameters.max_iter must be a positive integer.")
+
+    elif config["model"] == "random_forest":
+        n_estimators = parameters.get("n_estimators", 100)
+        if (
+            isinstance(n_estimators, bool)
+            or not isinstance(n_estimators, int)
+            or n_estimators < 1
+        ):
+            raise ValueError(
+                "model_parameters.n_estimators must be a positive integer."
+            )
 
     metrics = config["metrics"]
     if not isinstance(metrics, list) or not metrics:
