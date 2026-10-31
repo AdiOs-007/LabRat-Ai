@@ -116,11 +116,17 @@ def load_config(path: str | Path) -> dict[str, Any]:
     ):
         raise ValueError("experiment_name must be a non-empty string.")
 
-    if config["dataset"] not in SUPPORTED_DATASETS:
-        raise ValueError(f"Unsupported dataset: {config['dataset']}")
+    dataset = config["dataset"]
+    if not isinstance(dataset, str):
+        raise ValueError("dataset must be a string.")
+    if dataset not in SUPPORTED_DATASETS:
+        raise ValueError(f"Unsupported dataset: {dataset}")
 
-    if config["model"] not in SUPPORTED_MODELS:
-        raise ValueError(f"Unsupported model: {config['model']}")
+    model = config["model"]
+    if not isinstance(model, str):
+        raise ValueError("model must be a string.")
+    if model not in SUPPORTED_MODELS:
+        raise ValueError(f"Unsupported model: {model}")
 
     test_size = config["test_size"]
     if (

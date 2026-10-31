@@ -58,6 +58,18 @@ class TestConfig(unittest.TestCase):
         )
         self.assertIsNone(loaded["model_parameters"]["max_depth"])
 
+    def test_rejects_non_string_dataset(self):
+        for dataset in ([], {}, None, 42):
+            with self.subTest(dataset=dataset):
+                with self.assertRaises(ValueError):
+                    self.load_modified_config({"dataset": dataset})
+
+    def test_rejects_non_string_model(self):
+        for model in ([], {}, None, 42):
+            with self.subTest(model=model):
+                with self.assertRaises(ValueError):
+                    self.load_modified_config({"model": model})
+
     def test_rejects_unknown_logistic_regression_parameter(self):
         with self.assertRaisesRegex(ValueError, "Unsupported parameters"):
             self.load_modified_config(
