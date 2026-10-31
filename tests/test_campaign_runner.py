@@ -127,6 +127,43 @@ class TestCampaignRunner(unittest.TestCase):
                 [1.0, 10.0],
             )
 
+    def test_runs_random_forest_campaign_with_model_specific_parameters(self):
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            directory_path = Path(directory)
+            database_path = directory_path / "experiments.sqlite3"
+            config_path = directory_path / "random_forest.json"
+
+            config = json.loads(BASELINE_CONFIG.read_text())
+            config["experiment_name"] = "random_forest_campaign"
+            config["model"] = "random_forest"
+            config["model_parameters"] = {"n_estimators": 100}
+            config_path.write_text(json.dumps(config))
+
+            result = run_campaign(
+                config_path,
+                database_path,
+                max_trials=2,
+                metric="f1",
+                direction="maximize",
+            )
+
+            candidates = result["candidate_results"]
+
+            self.assertEqual(result["trials_completed"], 2)
+            self.assertEqual(len(candidates), 2)
+
+            for candidate in candidates:
+                self.assertEqual(candidate["model"], "random_forest")
+                self.assertIn("n_estimators", candidate["model_parameters"])
+                self.assertNotIn("C", candidate["model_parameters"])
+
+            self.assertNotEqual(
+                candidates[0]["model_parameters"],
+                candidates[1]["model_parameters"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
