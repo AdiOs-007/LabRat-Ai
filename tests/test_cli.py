@@ -2,7 +2,7 @@
 
 import json
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -135,6 +135,71 @@ class TestCLI(unittest.TestCase):
                     str(self.database),
                 ]
             )
+        self.assertEqual(context.exception.code, 2)
+
+    def test_report_handles_mixed_evaluation_protocols(self) -> None:
+        output_path = Path(self.temp_dir.name) / "mixed-report.md"
+
+        with redirect_stdout(StringIO()):
+            main(
+                [
+                    "run",
+                    "configs/baseline.json",
+                    "--database",
+                    str(self.database),
+                ]
+            )
+            main(
+                [
+                    "campaign",
+                    "configs/baseline.json",
+                    "--max-trials",
+                    "1",
+                    "--database",
+                    str(self.database),
+                ]
+            )
+            exit_code = main(
+                [
+                    "report",
+                    "--database",
+                    str(self.database),
+                    "--output",
+                    str(output_path),
+                ]
+            )
+
+        self.assertEqual(exit_code, 0)
+        report = output_path.read_text(encoding="utf-8")
+        self.assertIn("Evaluation group 1", report)
+        self.assertIn("Evaluation group 2", report)
+        self.assertIn("`validation`", report)
+        self.assertIn("`unspecified`", report)
+
+    def test_invalid_report_limit(self) -> None:
+        with self.assertRaises(SystemExit) as context:
+            main(
+                [
+                    "report",
+                    "--limit",
+                    "0",
+                    "--database",
+                    str(self.database),
+                    "--output",
+                    str(Path(self.temp_dir.name) / "report.md"),
+                ]
+            )
+
+        self.assertEqual(context.exception.code, 2)
+
+    def test_sqlite_error_is_reported_cleanly(self) -> None:
+        invalid_database = Path(self.temp_dir.name) / "not-a-database"
+        invalid_database.mkdir()
+
+        with redirect_stderr(StringIO()):
+            with self.assertRaises(SystemExit) as context:
+                main(["history", "--database", str(invalid_database)])
+
         self.assertEqual(context.exception.code, 2)
 
 

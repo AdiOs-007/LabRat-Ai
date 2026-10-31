@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -102,19 +103,72 @@ def handle_compare(args: argparse.Namespace) -> int:
 
 
 def handle_report(args: argparse.Namespace) -> int:
-    """Export a Markdown report of stored experiments."""
+    """Export a Markdown report with separate rankings per evaluation group."""
     storage = SQLiteBackend(args.database)
     try:
         experiments = storage.list_experiments(limit=args.limit)
     finally:
         storage.close()
 
-    ranking = rank_experiments(
-        experiments,
-        metric=args.metric,
-        direction=args.direction,
-    )
-    report = generate_markdown_report(experiments, ranking)
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for experiment in experiments:
+        evaluation = experiment.get("evaluation")
+        group_key = (
+            str(experiment.get("dataset")),
+            str(experiment.get("dataset_fingerprint")),
+            json.dumps(evaluation, sort_keys=True),
+        )
+        groups.setdefault(group_key, []).append(experiment)
+
+    if not groups:
+        ranking = rank_experiments(
+            [],
+            metric=args.metric,
+            direction=args.direction,
+        )
+        report = generate_markdown_report([], ranking)
+    else:
+        report_lines = [
+            "# LabRat AI — Experiment Report",
+            "",
+            f"- **Experiments available:** {len(experiments)}",
+            f"- **Evaluation groups:** {len(groups)}",
+            f"- **Ranking metric:** `{args.metric}`",
+            f"- **Optimization direction:** {args.direction}",
+            "",
+        ]
+
+        for index, group in enumerate(groups.values(), start=1):
+            ranking = rank_experiments(
+                group,
+                metric=args.metric,
+                direction=args.direction,
+            )
+            group_report = generate_markdown_report(group, ranking)
+            evaluation = group[0].get("evaluation")
+            evaluation = evaluation if isinstance(evaluation, dict) else {}
+
+            report_lines.extend(
+                [
+                    f"## Evaluation group {index}",
+                    "",
+                    f"- **Dataset:** `{group[0].get('dataset')}`",
+                    f"- **Metric source:** "
+                    f"`{evaluation.get('metric_source', 'unspecified')}`",
+                    f"- **Protocol version:** "
+                    f"`{evaluation.get('protocol_version', 'unspecified')}`",
+                    "",
+                ]
+            )
+
+            for line in group_report.splitlines()[1:]:
+                report_lines.append(
+                    line.replace("## ", "### ", 1) if line.startswith("## ") else line
+                )
+
+            report_lines.append("")
+
+        report = "\n".join(report_lines)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report, encoding="utf-8")
@@ -289,12 +343,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    if args.command in {"history", "compare"} and args.limit < 1:
+    if args.command in {"history", "compare", "report"} and args.limit < 1:
         parser.error("--limit must be at least 1")
 
     try:
         return args.handler(args)
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, sqlite3.Error) as error:
         parser.error(str(error))
         return 2
 
